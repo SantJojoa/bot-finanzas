@@ -1,2 +1,2 @@
-# bot-finanzas
-FinanzasBot Zozorrita es un bot de Telegram diseñado para llevar un control simple y práctico de tus finanzas personales.
+# finanzas-bot
+Bot de telegram destinado a facilitar el manejo de finanzas de las personas
