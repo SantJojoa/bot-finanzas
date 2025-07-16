@@ -14,7 +14,18 @@ CREDENTIALS_PATH = os.getenv("CREDENTIALS_JSON")
 sheets = SheetsManager(CREDENTIALS_PATH, GOOGLE_SHEET_ID)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hola, bienvenido al bot de finanzas. Envíame + o - seguido de la cantidad y descripción para registrar la transferencia.")
+    message = (
+        "👋 ¡Bienvenido al *Bot de Finanzas*\n\n"
+        "💸 *Comandos disponibles:*\n"
+        "➕ *Registrar ingreso*: \n"
+        "`+500 Recibí pago de Juan`\n\n"
+        "➖ *Registrar egreso*: \n"
+        "`-200 Compré proteína`\n\n"
+        "📊 *Ver balance*: \n"
+        "/balance\n\n"        
+    )
+    
+    await update.message.reply_text(message, parse_mode="Markdown")
     
 async def register(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message.text
