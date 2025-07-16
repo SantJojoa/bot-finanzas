@@ -13,7 +13,8 @@ class SheetsManager:
         
     def save_transfer(self, amount, type, description):
         date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.sheet.append_row([date, amount, type, description])
+        formatted_amount = f"${int(amount):,} COP".replace(",", ".")
+        self.sheet.append_row([date, formatted_amount, type, description])
         
     def get_balance(self):
         registers = self.sheet.get_all_values()[1:]
@@ -34,5 +35,9 @@ class SheetsManager:
         balance = ingresos - egresos
         return ingresos, egresos, balance
     
+    
+    def get_all_records(self):
+        registros = self.sheet.get_all_values()[1:]  # Saltar cabecera
+        return registros
         
         

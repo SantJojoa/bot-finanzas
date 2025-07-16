@@ -7,6 +7,9 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 from sheets import SheetsManager
 
+from exporter import generate_pdf
+
+
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 CREDENTIALS_PATH = os.getenv("CREDENTIALS_JSON")
@@ -42,7 +45,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [
             ["➕ Registrar ingreso", "➖ Registrar egreso"],
-            ["📊 Ver balance"]
+            ["📊 Ver balance", "📄 Exportar PDF"]
         ]
         
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -60,6 +63,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif message == "📊 Ver balance":
         await mostrar_balance(update, context)
+
+    elif message == "📄 Exportar PDF":
+        await exportar_pdf(update, context)
 
     elif "esperando" in user_data:
         await procesar_flujo(update, context, message)
@@ -86,7 +92,7 @@ async def procesar_flujo(update: Update, context: ContextTypes.DEFAULT_TYPE, mes
 
         sheets.save_transfer(cantidad, tipo, descripcion)
 
-        await update.message.reply_text(f"✅ {tipo} de {cantidad} registrado con éxito: {descripcion}")
+        await update.message.reply_text(f"✅ {tipo} de {format_cop(cantidad)} registrado con éxito: {descripcion}")
 
         # Limpiar estado
         for key in ["modo", "cantidad", "esperando", "estado_anterior"]:
@@ -106,12 +112,26 @@ async def mostrar_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     mensaje = (
         f"💰 <b>Balance actual:</b>\n\n"
-        f"<b>Ingresos:</b> {ingresos}\n"
-        f"<b>Egresos:</b> {egresos}\n"
-        f"<b>Saldo:</b> {saldo}"
+        f"<b>Ingresos:</b> {format_cop(ingresos)}\n"
+        f"<b>Egresos:</b> {format_cop(egresos)}\n"
+        f"<b>Saldo:</b> {format_cop(saldo)}"
     )
 
     await update.message.reply_text(mensaje, parse_mode="HTML")
+    
+    
+async def exportar_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ingresos, egresos, saldo = sheets.get_balance()
+    registros = sheets.get_all_records()  # Nuevo método en SheetsManager
+
+    filename = "reporte_finanzas.pdf"
+    generate_pdf(ingresos, egresos, saldo, registros, filename)
+
+    await update.message.reply_document(open(filename, "rb"))
+    
+    
+def format_cop(amount):
+    return f"${int(amount):,} COP".replace(",", ".")
 
 def main():
     app = ApplicationBuilder().token(TOKEN_TELEGRAM).build()
