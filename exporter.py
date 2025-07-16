@@ -7,7 +7,7 @@ def generate_pdf(ingresos, egresos, saldo, registros, filename="reporte.pdf"):
     c = canvas.Canvas(filename, pagesize=letter)
     width, height = letter
     
-    titulo = "📊 Resumen Financiero - Zozorrita"
+    titulo = "📊 Resumen Financiero"
     c.setFont("Helvetica-Bold", 20)
     c.drawString(50, height - 50, titulo)
     
