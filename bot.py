@@ -2,6 +2,12 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
+
+
+if not os.path.exists("credentials.json"):
+    with open("credentials.json", "w") as f:
+        f.write(os.getenv("CREDENTIALS_JSON_RAW"))
+
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
