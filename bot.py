@@ -23,112 +23,121 @@ CREDENTIALS_PATH = os.getenv("CREDENTIALS_JSON")
 sheets = SheetsManager(CREDENTIALS_PATH, GOOGLE_SHEET_ID)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [["Iniciar Bot 🤖"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    init_keyboard = [["🔰 Iniciar Bot"]]
+    
+    reply_markup = ReplyKeyboardMarkup(init_keyboard, resize_keyboard=True)
     
     message = "👋 ¡Bienvenido al Bot de Finanzas!\n\nPresiona el botón para iniciar el bot."
     await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message.text
     user_data = context.user_data
-
-    # Si aún no ha iniciado el bot
+    
     if not user_data.get("iniciado"):
-        if message == "Iniciar Bot 🤖":
-            user_data["iniciado"] = True
-
-            keyboard = [
-                ["➕ Registrar ingreso", "➖ Registrar egreso"],
-                ["📊 Ver balance", "📄 Exportar PDF"]
-            ]
-            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-            await update.message.reply_text("Selecciona una opción:", reply_markup=reply_markup)
-        else:
-            await update.message.reply_text("Presiona el botón para iniciar el bot, Zozorrita.")
+        init_keyboard = [["🔰 Iniciar Bot"]]
+        reply_markup = ReplyKeyboardMarkup(init_keyboard, resize_keyboard=True)
+        
+        if message != "🔰 Iniciar Bot":
+            await update.message.reply_text(
+                "👋 ¡Hola! Presiona el botón para iniciar el bot.",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return
+        
+        user_data["iniciado"] = True
+        
+        keyboard = [
+            ["➕ Registrar ingreso", "➖ Registrar egreso"],
+            ["📊 Ver balance", "📄 Exportar PDF"]
+        ]
+        
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("Bot iniciado. ¿Qué deseas hacer?", reply_markup=reply_markup)
         return
+    
+    
+    if message == "➕ Registrar ingreso":
+        user_data["modo"] = "Ingreso"
+        await update.message.reply_text("¿Cuánto deseas registrar como ingreso?", reply_markup=ForceReply(selective=True))
 
-    # Si está esperando la cantidad
-    if user_data.get("esperando") == "cantidad":
+    elif message == "➖ Registrar egreso":
+        user_data["modo"] = "Egreso"
+        await update.message.reply_text("¿Cuánto deseas registrar como egreso?", reply_markup=ForceReply(selective=True))
+
+    elif message == "📊 Ver balance":
+        await mostrar_balance(update, context)
+
+    elif message == "📄 Exportar PDF":
+        await exportar_pdf(update, context)
+
+    elif "esperando" in user_data:
+        await procesar_flujo(update, context, message)
+
+    elif "modo" in user_data:
         try:
             cantidad = float(message)
             user_data["cantidad"] = cantidad
             user_data["esperando"] = "descripcion"
-
-            await update.message.reply_text("Perfecto, Zozorrita. Ahora escribe una descripción para este movimiento:", reply_markup=ForceReply(selective=True))
+            await update.message.reply_text("Perfecto. Ahora escribe una descripción:", reply_markup=ForceReply(selective=True))
         except:
-            await update.message.reply_text("Por favor ingresa un número válido, Zozorrita.")
-        return
+            await update.message.reply_text("Por favor ingresa un número válido.")
 
-    # Si está esperando la descripción
+    else:
+        await update.message.reply_text("Usa los botones. Si quieres volver al menú escribe /start.")
+
+async def procesar_flujo(update: Update, context: ContextTypes.DEFAULT_TYPE, message: str):
+    user_data = context.user_data
+
     if user_data.get("esperando") == "descripcion":
         descripcion = message
-        cantidad = user_data["cantidad"]
-        tipo = user_data["tipo"]
+        cantidad = user_data.get("cantidad")
+        tipo = user_data.get("modo")
 
         sheets.save_transfer(cantidad, tipo, descripcion)
 
-        await update.message.reply_text(f"{tipo} de ${int(cantidad):,} COP registrado con éxito: {descripcion}".replace(",", "."))
+        await update.message.reply_text(f"✅ {tipo} de {format_cop(cantidad)} registrado con éxito: {descripcion}")
 
-        # Limpiar flujo y volver al menú
-        user_data.pop("esperando", None)
-        user_data.pop("cantidad", None)
-        user_data.pop("tipo", None)
+        # Limpiar estado
+        for key in ["modo", "cantidad", "esperando", "estado_anterior"]:
+            user_data.pop(key, None)
+        
+        # Volver al menú principal
+        keyboard = [
+            ["➕ Registrar ingreso", "➖ Registrar egreso"],
+            ["📊 Ver balance"]
+        ]
+        
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("¿Quieres registrar otro movimiento o ver tu balance?", reply_markup=reply_markup)
 
-        await mostrar_menu(update)
-        return
-
-    # Opciones del menú principal
-    if message == "➕ Registrar ingreso":
-        user_data["tipo"] = "Ingreso"
-        user_data["esperando"] = "cantidad"
-        await update.message.reply_text("¿Cuánto deseas registrar como ingreso?")
-
-    elif message == "➖ Registrar egreso":
-        user_data["tipo"] = "Egreso"
-        user_data["esperando"] = "cantidad"
-        await update.message.reply_text("¿Cuánto deseas registrar como egreso?")
-
-    elif message == "📊 Ver balance":
-        await mostrar_balance(update)
-
-    elif message == "📄 Exportar PDF":
-        await exportar_pdf(update)
-
-    else:
-        await update.message.reply_text("Usa los botones, Zozorrita.")
-
-async def mostrar_menu(update: Update):
-    keyboard = [
-        ["➕ Registrar ingreso", "➖ Registrar egreso"],
-        ["📊 Ver balance", "📄 Exportar PDF"]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-    await update.message.reply_text("Selecciona una opción:", reply_markup=reply_markup)
-
-async def mostrar_balance(update: Update):
+async def mostrar_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ingresos, egresos, saldo = sheets.get_balance()
 
     mensaje = (
         f"💰 <b>Balance actual:</b>\n\n"
-        f"<b>Ingresos:</b> ${int(ingresos):,} COP\n"
-        f"<b>Egresos:</b> ${int(egresos):,} COP\n"
-        f"<b>Saldo:</b> ${int(saldo):,} COP"
-    ).replace(",", ".")
+        f"<b>Ingresos:</b> {format_cop(ingresos)}\n"
+        f"<b>Egresos:</b> {format_cop(egresos)}\n"
+        f"<b>Saldo:</b> {format_cop(saldo)}"
+    )
 
     await update.message.reply_text(mensaje, parse_mode="HTML")
-
-async def exportar_pdf(update: Update):
+    
+    
+async def exportar_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ingresos, egresos, saldo = sheets.get_balance()
-    registros = sheets.sheet.get_all_values()[1:]
+    registros = sheets.get_all_records()  # Nuevo método en SheetsManager
 
     filename = "reporte_finanzas.pdf"
     generate_pdf(ingresos, egresos, saldo, registros, filename)
 
-    with open(filename, "rb") as pdf:
-        await update.message.reply_document(pdf, filename=filename)
+    await update.message.reply_document(open(filename, "rb"))
+    
+    
+def format_cop(amount):
+    return f"${int(amount):,} COP".replace(",", ".")
 
 def main():
     app = ApplicationBuilder().token(TOKEN_TELEGRAM).build()
